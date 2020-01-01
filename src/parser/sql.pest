@@ -2,17 +2,22 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 // sql statements
 sql_statements = _{
-    sql_control_statements
-}
-
-// SQL-control statements
-sql_control_statements = {
-    call_statement
-    | return_statement
+    SOI ~  
+    (sql_schema_statement
+    | sql_data_statement
+    | sql_transaction_statement
+    | sql_control_statement
+    | sql_connection_statement
+    | sql_session_statement
+    | sql_diagnostics_statement
+    | sql_dynamic_statement)
+    ~ EOI
 }
 
 //5.1 sql terminal character
-sql_terminal_character = {sql_language_character} 
+sql_terminal_character = {
+    sql_language_character
+} 
 sql_language_character = {
     simple_latin_letter 
     | digit 
@@ -204,6 +209,24 @@ non_reserved_word = {
 reserved_word = {
     "ABS"
 }
+concatenation_operator = {
+    "||"
+}
+right_arrow = {
+    "->"
+}
+double_colon = {
+    "::"
+}
+not_equals_operator = {
+    "<<" | "<>" | ">>"
+}
+less_than_or_equals_operator = {
+    "<="
+}
+greater_than_or_equals_operator = {
+    ">="
+}
 
 //5.3 literal
 literal = {
@@ -253,6 +276,10 @@ boolean_literal = {
     | "FALSE"
     | "UNKNOWN"
 }
+sign = {
+    plus_sign 
+    | minus_sign 
+}
 
 //5.4 names and identifiers
 identifier = {
@@ -274,10 +301,10 @@ sql_language_identifier_part = {
     | digit
     | underscore
 }
-// authorization_identifier = {
-//     role_name
-//     | user_identifier
-// }
+authorization_identifier = {
+    role_name
+    | user_identifier
+}
 table_name = {
     local_or_schema_qualified_name
 }
@@ -456,6 +483,117 @@ measure_name = {
 }
 
 //6.1 data type
+data_type = {
+    predefined_type
+    | row_type
+    | path_resolved_user_defined_type_name
+    | reference_type
+    | collection_type
+}
+predefined_type = {
+    character_string_type ~ "CHARACTER" ~ "SET" ~  character_set_specification 
+    ~ collate_clause?
+    | national_character_string_type ~ collate_clause?
+    | binary_string_type
+    | numeric_type
+    | boolean_type
+    | datetime_type
+    | interval_type
+}
+character_string_type = {
+    "CHARACTER" ~ (left_paren ~ character_length ~ right_paren)*
+    | "CHAR" ~ (left_paren ~ character_length ~ right_paren)*
+    | "CHARACTER" ~ "VARYING" ~ left_paren ~ character_length ~ right_paren
+    | "CHAR" ~ "VARYING" ~ left_paren ~ character_length ~ right_paren
+    | "VARCHAR" ~ left_paren ~ character_length ~ right_paren
+    | character_large_object_type
+}
+character_large_object_type = {
+    "CHARACTER" ~ "LARGE" ~ "OBJECT" ~ (left_paren ~ character_large_object_length ~ right_paren)*
+    | "CHAR" ~ "LARGE" ~ "OBJECT" ~ (left_paren ~ character_large_object_length ~ right_paren)*
+    | "CLOB" ~  (left_paren ~ character_large_object_length ~ right_paren)*
+}
+binary_large_object_string_type = {
+    "BINARY" ~ "LARGE" ~ "OBJECT" ~ (left_paren ~ large_object_length ~ right_paren)*
+    | "BLOB" ~ (left_paren ~ large_object_length ~ right_paren)?
+}
+numeric_type = {
+    exact_numeric_type
+    | approximate_numeric_type
+}
+exact_numeric_type = {
+    "NUMERIC" ~ (left_paren ~ precision ~ (comma ~ scale)? ~ right_paren)?
+    | "DECIMAL" ~ (left_paren ~ precision ~ (comma ~ scale)? ~ right_paren)?
+    | "DEC" ~ (left_paren ~ precision ~ (comma ~ scale)? ~ right_paren)*
+    | "SMALLINT"
+    | "INTEGER"
+    | "INT"
+    | "BIGINT"
+}
+approximate_numeric_type = {
+    "FLOAT" ~ (left_paren ~ precision ~ right_paren)?
+    | "REAL"
+    | "DOUBLE" ~ "PRECISION"
+}
+national_character_string_type = {
+    "NATIONAL" ~ "CHARACTER" ~ (left_paren ~ character_length ~ right_paren)?
+    | "NATIONAL" ~ "CHAR" ~ (left_paren ~ character_length ~ right_paren)?
+    | "NCHAR" ~ (left_paren ~ character_length ~ right_paren)*
+    | "NATIONAL" ~ "CHARACTER" ~ "VARYING" ~ left_paren ~ character_length ~ right_paren
+    | "NATIONAL" ~ "CHAR" ~ "VARYING" ~ left_paren ~ character_length ~ right_paren
+    | "NCHAR" ~ "VARYING" ~ left_paren ~ character_length ~ right_paren
+    | national_character_large_object_type
+}
+national_character_large_object_type = {
+    "NATIONAL" ~ "CHARACTER" ~ "LARGE" ~ "OBJECT" ~ (left_paren ~ character_large_object_length ~ right_paren)?
+    | "NCHAR" ~ "LARGE" ~ "OBJECT" ~ (left_paren ~ character_large_object_length ~ right_paren)?
+    | "NCLOB" ~ (left_paren ~ character_large_object_length ~ right_paren)?
+}
+binary_string_type = {
+    "BINARY" ~ (left_paren ~ length ~ right_paren)?
+    | "BINARY" ~ "VARYING" ~ left_paren ~ length ~ right_paren
+    | "VARBINARY" ~ left_paren ~ length ~ right_paren
+    | binary_large_object_string_type
+}
+decimal_floating_point_type = {
+    "DECFLOAT" ~ (left_paren ~ precision ~ right_paren)?
+}
+length = {
+    unsigned_integer
+}
+character_length = {
+    length ~ char_length_units?
+}
+large_object_length = {
+    length ~ multiplier
+    | large_object_length_token
+}
+character_large_object_length = {
+    large_object_length ~ char_length_units?
+}
+char_length_units = {
+    "CHARACTERS"
+    | "OCTETS"
+}
+precision = {
+    unsigned_integer
+}
+scale = {
+    unsigned_integer
+}
+boolean_type = {
+    "BOOLEAN"
+}
+datetime_type = {
+    "DATE"
+    | "TIME" ~ (left_paren ~ time_precision ~ right_paren)? ~ (with_or_without_time_zone)?
+    | "TIMESTAMP" ~ (left_paren ~ timestamp_precision ~ right_paren)?
+    ~ (with_or_without_time_zone)?
+}
+with_or_without_time_zone = {
+    "WITH" ~ "TIME" ~ "ZONE"
+    | "WITHOUT" ~ "TIME" ~ "ZONE"
+}
 time_precision = {
     time_fractional_seconds_precision
 }
@@ -465,132 +603,46 @@ timestamp_precision = {
 time_fractional_seconds_precision = _{
     unsigned_integer 
 }
-/*
-data_type = {
-    predefined_type
-    | row_type
-    | path_resolved_user_defined_type_name
-    | reference_type
-    | collection_type
+interval_type = {
+    "INTERVAL" ~ interval_qualifier
 }
-
-predefined_type = {
-    character_string_type ~ "CHARACTER" ~ "SET" ~  character_set_specification ]
-    [ <collate clause> ]
-    | <national character string type> [ <collate clause> ]
-    | <binary string type>
-    | <numeric type>
-    | boolean_type
-    | <datetime type>
-    | <interval type>
+row_type = {
+    "ROW" ~ row_type_body
 }
-
-character_string_type = {
-    CHARACTER [ <left paren> <character length> <right paren> ]
-    | CHAR [ <left paren> <character length> <right paren> ]
-    | CHARACTER VARYING <left paren> <character length> <right paren>
-    | CHAR VARYING <left paren> <character length> <right paren>
-    | VARCHAR <left paren> <character length> <right paren>
-    | <character large object type>
+row_type_body = {
+    left_paren ~ field_definition ~ (comma ~ field_definition)* ~ right_paren
 }
-
-character_large_object_type = {
-    "CHARACTER" "LARGE" "OBJECT" [ <left paren> <character large object length> <right paren> ]
-    | CHAR LARGE OBJECT [ <left paren> <character large object length> <right paren> ]
-    | CLOB [ <left paren> <character large object length> <right paren> ]
+reference_type = {
+    "REF" ~ left_paren ~ referenced_type ~ right_paren ~ scope_clause?
 }
-
-<national character string type> ::=
-NATIONAL CHARACTER [ <left paren> <character length> <right paren> ]
-| NATIONAL CHAR [ <left paren> <character length> <right paren> ]
-| NCHAR [ <left paren> <character length> <right paren> ]
-| NATIONAL CHARACTER VARYING <left paren> <character length> <right paren>
-| NATIONAL CHAR VARYING <left paren> <character length> <right paren>
-| NCHAR VARYING <left paren> <character length> <right paren>
-| <national character large object type>
-<national character large object type> ::=
-NATIONAL CHARACTER LARGE OBJECT [ <left paren> <character large object length> <right
-paren> ]
-| NCHAR LARGE OBJECT [ <left paren> <character large object length> <right paren> ]
-| NCLOB [ <left paren> <character large object length> <right paren> ]
-<binary string type> ::=
-BINARY [ <left paren> <length> <right paren> ]
-| BINARY VARYING <left paren> <length> <right paren>
-| VARBINARY <left paren> <length> <right paren>
-| <binary large object string type>
-<binary large object string type> ::=
-BINARY LARGE OBJECT [ <left paren> <large object length> <right paren> ]
-| BLOB [ <left paren> <large object length> <right paren> ]
-<numeric type> ::=
-<exact numeric type>
-| <approximate numeric type>
-<exact numeric type> ::=
-NUMERIC [ <left paren> <precision> [ <comma> <scale> ] <right paren> ]
-| DECIMAL [ <left paren> <precision> [ <comma> <scale> ] <right paren> ]
-| DEC [ <left paren> <precision> [ <comma> <scale> ] <right paren> ]
-| SMALLINT
-| INTEGER
-| INT
-| BIGINT
-<approximate numeric type> ::=
-FLOAT [ <left paren> <precision> <right paren> ]
-| REAL
-| DOUBLE PRECISION
-<length> ::=
-<unsigned integer>
-<character length> ::=
-<length> [ <char length units> ]
-<large object length> ::=
-<length> [ <multiplier> ]
-| <large object length token>
-<character large object length> ::=
-<large object length> [ <char length units> ]
-<char length units> ::=
-CHARACTERS
-| OCTETS
-<precision> ::=
-<unsigned integer>
-<scale> ::=
-<unsigned integer>
-<boolean type> ::=
-BOOLEAN
-<datetime type> ::=
-DATE
-| TIME [ <left paren> <time precision> <right paren> ] [ <with or without time zone> ]
-| TIMESTAMP [ <left paren> <timestamp precision> <right paren> ]
- [ <with or without time zone> ]
-<with or without time zone> ::=
-WITH TIME ZONE
-| WITHOUT TIME ZONE
-
-<timestamp precision> ::=
-<time fractional seconds precision>
-<time fractional seconds precision> ::=
-<unsigned integer>
-<interval type> ::=
-INTERVAL <interval qualifier>
-<row type> ::=
-ROW <row type body>
-<row type body> ::=
-<left paren> <field definition> [ { <comma> <field definition> }... ] <right paren>
-<reference type> ::=
-REF <left paren> <referenced type> <right paren> [ <scope clause> ]
-<scope clause> ::=
-SCOPE <table name>
-<referenced type> ::=
-<path-resolved user-defined type name>
-<path-resolved user-defined type name> ::=
-<user-defined type name>
-<collection type> ::=
-<array type>
-| <multiset type>
+scope_clause = {
+    "SCOPE" ~ table_name
+}
+referenced_type = {
+    path_resolved_user_defined_type_name
+}
+path_resolved_user_defined_type_name = {
+    user_defined_type_name
+}
+collection_type = {
+    array_type
+    | multiset_type
+}
 array_type = {
     data_type ~ "ARRAY"
-    [ <left bracket or trigraph> <maximum cardinality> <right bracket or trigraph> ]   
+    ~ left_bracket_or_trigraph ~ maximum_cardinality ~ right_bracket_or_trigraph   
 }
-maximum_cardinality = {unsigned_integer}
-multiset_type = {data_type ~ "MULTISET"}
-*/
+maximum_cardinality = {
+    unsigned_integer
+}
+multiset_type = {
+    data_type ~ "MULTISET"
+}
+
+//6.2 field definition
+field_definition = {
+    field_name ~ data_type
+} 
 
 //6.3 value expression primary
 value_expression_primary = {
@@ -721,6 +773,14 @@ empty_specification = {
 } 
 default_specification = {
     "DEFAULT"
+}
+
+//6.6 identifier chain
+identifier_chain = {
+    identifier ~ (period ~ identifier)? 
+}
+basic_identifier_chain = {
+    identifier_chain 
 }
 
 //6.7 column reference
@@ -936,6 +996,11 @@ cast_template = {
     character_string_literal
 }
 
+//6.14 next value expression>
+next_value_expression = {
+    "NEXT" ~ "VALUE" ~ "FOR" ~ sequence_generator_name
+}
+
 //6.15 field reference
 field_reference = {
     value_expression_primary ~ period ~ field_name 
@@ -954,88 +1019,133 @@ target_subtype = {
 }
 
 //6.17 method invocation
+method_invocation = {
+    direct_invocation 
+    | generalized_invocation
+} 
+direct_invocation = {
+    value_expression_primary ~ period ~ method_name ~ sql_argument_list?
+}
+generalized_invocation = {
+    left_paren ~ value_expression_primary ~ "AS" ~ data_type ~ right_paren 
+    ~ period ~ method_name ~ sql_argument_list?
+}
+method_selection = {
+    routine_invocation 
+}
+constructor_method_selection = {
+    routine_invocation 
+}
 
 //6.18 static method invocation
+static_method_invocation = {
+    path_resolved_user_defined_type_name ~ double_colon ~ method_name 
+    ~ sql_argument_list?
+}
+static_method_selection = {
+    routine_invocation 
+}
 
 //6.19 new specification
-<new specification> ::=
-  NEW <path-resolved user-defined type name>  <SQL argument list> 
-<new invocation> ::=
-    <method invocation> 
-  | <routine invocation> 
+new_specification = {
+    "NEW" ~ path_resolved_user_defined_type_name ~ sql_argument_list 
+}
+new_invocation = {
+    method_invocation 
+    | routine_invocation 
+}
 
 //6.20 attribute or method reference
-<attribute or method reference> ::=
-  <value expression primary>  <dereference operator>  <qualified identifier> 
-      [ <SQL argument list>  ]
-<dereference operator> ::=
-  <right arrow> 
+attribute_or_method_reference = {  
+    value_expression_primary ~ dereference_operator ~ qualified_identifier 
+    ~ sql_argument_list?
+}
+dereference_operator = {
+    right_arrow 
+}
 
 //6.21 dereference operation
-<dereference operation> ::=
-  <reference value expression>  <dereference operator>  <attribute name> 
+dereference_operation = {
+    reference_value_expression ~ dereference_operator ~ attribute_name
+}
 
 //6.22 method reference
-<method reference> ::=
-  <value expression primary>  <dereference operator>  <method name>  <SQL argument list> 
+method_reference = {
+    value_expression_primary ~ dereference_operator ~ method_name ~ sql_argument_list 
+}
 
 //6.23 reference resolution
-<reference resolution> ::=
-  DEREF <left paren>  <reference value expression>  <right paren> 
+reference_resolution = {
+    "DEREF" ~ left_paren ~ reference_value_expression ~ right_paren 
+}
 
 //6.24 array element reference
-<array element reference> ::=
-  <array value expression> 
-      <left bracket or trigraph>  <numeric value expression>  <right bracket or trigraph> 
+array_element_reference = {    
+    array_value_expression 
+    ~ left_bracket_or_trigraph ~ numeric_value_expression ~ right_bracket_or_trigraph 
+}
 
 //6.25 multiset element reference
-<multiset element reference> ::=
-  ELEMENT <left paren>  <multiset value expression>  <right paren> 
+multiset_element_reference = {
+    "ELEMENT" ~ left_paren ~ multiset_value_expression ~ right_paren 
+}
 
 //6.26 row pattern navigation operation
-<row pattern navigation operation> ::=
-    <row pattern navigation: logical> 
-  | <row pattern navigation: physical> 
-  | <row pattern navigation: compound> 
-<row pattern navigation: logical> ::=
-  [ <running or final>  ] <first or last> 
-      <left paren>  <value expression>  [ <comma>  <logical offset>  ] <right paren> 
-<row pattern navigation: physical> ::=
-  <prev or next> 
-      <left paren>  <value expression>  [ <comma>  <physical offset>  ] <right paren> 
-<row pattern navigation: compound> ::=
-  <prev or next>  <left paren>  [ <running or final>  ] <first or last> 
-      <left paren>  <value expression>  [ <comma>  <logical offset>  ] <right paren> 
-      [ <comma>  <physical offset>  ] <right paren> 
-<first or last> ::=
-  FIRST | LAST
-<prev or next> ::=
-  PREV | NEXT
-<logical offset> ::=
-    <simple value specification> 
-  | <dynamic parameter specification> 
-<physical offset> ::=
-    <simple value specification> 
-  | <dynamic parameter specification> 
+row_pattern_navigation_operation = {
+    row_pattern_navigation_logical 
+    | row_pattern_navigation_physical 
+    | row_pattern_navigation_compound
+} 
+row_pattern_navigation_logical = {
+    running_or_final? ~ first_or_last 
+    ~ left_paren ~ value_expression ~ (comma ~ logical_offset)* ~ right_paren 
+}
+row_pattern_navigation_physical = {
+    prev_or_next 
+    ~ left_paren ~ value_expression ~ (comma ~ physical_offset)? ~ right_paren 
+}
+row_pattern_navigation_compound = {
+    prev_or_next ~ left_paren ~ running_or_final? ~ first_or_last 
+    ~ left_paren ~ value_expression ~ (comma ~ logical_offset)? ~ right_paren 
+    ~ (comma ~ physical_offset)? ~ right_paren 
+}
+first_or_last = {
+    "FIRST" | "LAST"
+}
+prev_or_next = {
+    "PREV" | "NEXT"
+}
+logical_offset = {
+    simple_value_specification 
+    | dynamic_parameter_specification
+} 
+physical_offset = {
+    simple_value_specification 
+    | dynamic_parameter_specification 
+}
 
 //6.27 json value function
-<JSON value function> ::=
-  JSON_VALUE <left paren> 
-      <JSON API common syntax> 
-      [ <JSON returning clause>  ]
-      [ <JSON value empty behavior>  ON EMPTY ]
-      [ <JSON value error behavior>  ON ERROR ]
-  <right paren> 
-<JSON returning clause> ::=
-  RETURNING <data type> 
-<JSON value empty behavior> ::=
-    ERROR
-  | NULL
-  | DEFAULT <value expression> 
-<JSON value error behavior> ::=
-    ERROR
-  | NULL
-  | DEFAULT <value expression> 
+json_value_function = {
+    "JSON_VALUE" ~ left_paren 
+    ~ json_api_common_syntax 
+    ~ json_returning_clause?
+    ~ json_value_empty_behavior ~ "ON" ~ "EMPTY" 
+    ~ json_value_error_behavior ~ "ON" ~ "ERROR" 
+    ~ right_paren 
+}
+json_returning_clause = {
+    "RETURNING" ~ data_type 
+}
+json_value_empty_behavior = {
+    "ERROR"
+    | "NULL"
+    | "DEFAULT" ~ value_expression
+} 
+json_value_error_behavior = {
+    "ERROR"
+    | "NULL"
+    | "DEFAULT" ~ value_expression 
+}
 
 //6.28 value expression
 value_expression = {
@@ -1235,10 +1345,78 @@ width_bucket_bound_1 = {numeric_value_expression}
 width_bucket_bound_2 = {numeric_value_expression} 
 width_bucket_count = {numeric_value_expression} 
 match_number_function = {
-    "MATCH_NUMBER" ~ left_paren  ~ right_paren 
+    "MATCH_NUMBER" ~ left_paren ~ right_paren 
 }
 
-//6.35 
+//6.31 string value expression
+string_value_expression = {
+    character_value_expression 
+    | binary_value_expression 
+}
+character_value_expression = {
+    concatenation
+    | character_factor 
+}
+concatenation = {
+    character_value_expression ~ concatenation_operator ~ character_factor 
+}
+character_factor = {
+    character_primary ~ collate_clause?
+}
+character_primary = {
+    value_expression_primary 
+    | string_value_function 
+}
+binary_value_expression = {
+    binary_concatenation 
+    | binary_factor
+} 
+binary_factor = {
+    binary_primary
+} 
+binary_primary = {
+    value_expression_primary 
+    | string_value_function 
+}
+binary_concatenation = {
+    binary_value_expression ~ concatenation_operator ~ binary_factor 
+}
+
+//6.32 string value function
+string_value_function = {"TODO"}
+normal_form = {
+    "NFC"
+    | "NFD"
+    | "NFKC"
+    | "NFKD"
+}
+
+//6.35 datetime value expression
+datetime_value_expression = {
+    datetime_term 
+    | interval_value_expression ~ plus_sign ~ datetime_term 
+    | datetime_value_expression ~ plus_sign ~ interval_term 
+    | datetime_value_expression ~ minus_sign ~ interval_term
+} 
+datetime_term = {
+    datetime_factor
+} 
+datetime_factor = {
+    datetime_primary ~ time_zone?
+}
+datetime_primary = {
+    value_expression_primary 
+    | datetime_value_function
+} 
+time_zone = {
+    "AT" ~ time_zone_specifier
+} 
+time_zone_specifier = {
+    "LOCAL"
+    | "TIME" ~ "ZONE" ~ interval_primary 
+}
+
+//6.39
 boolean_value_expression = {
     boolean_term
     | boolean_value_expression ~ "OR" ~ boolean_term
@@ -1268,6 +1446,93 @@ boolean_predicand = {
 }
 parenthesized_boolean_value_expression = {
     left_paren ~ boolean_value_expression ~ right_paren
+}
+
+//6.40 array value expression
+array_value_expression = {
+    array_concatenation 
+    | array_primary 
+}
+array_concatenation = {
+    array_value_expression_1 ~ concatenation_operator ~ array_primary
+} 
+array_value_expression_1 = {
+    array_value_expression 
+}
+array_primary = {
+    array_value_function 
+    | value_expression_primary 
+}
+
+//6.41 array value function
+array_value_function = {
+    trim_array_function 
+}
+trim_array_function = {
+    "TRIM_ARRAY" ~ left_paren ~ array_value_expression ~ comma ~ numeric_value_expression ~ right_paren
+}
+
+//6.42 array value constructor
+array_value_constructor = {
+    array_value_constructor_by_enumeration 
+    | array_value_constructor_by_query
+} 
+array_value_constructor_by_enumeration = {
+    "ARRAY" ~ left_bracket_or_trigraph ~ array_element_list ~ right_bracket_or_trigraph 
+}
+array_element_list = {
+    array_element ~ (comma ~ array_element)?
+}
+array_element = {
+    value_expression 
+}
+array_value_constructor_by_query = {
+    "ARRAY" ~ table_subquery 
+}
+
+//6.43 multiset value expression
+multiset_value_expression = {
+    multiset_term 
+    | multiset_value_expression ~ "MULTISET" ~ "UNION" ~ ("ALL" | "DISTINCT") ~ multiset_term 
+    | multiset_value_expression ~ "MULTISET" ~ "EXCEPT" ~ ( "ALL" | "DISTINCT") ~ multiset_term
+}
+multiset_term = {
+    multiset_primary 
+    | multiset_term ~ "MULTISET" ~  "INTERSECT" ~ ("ALL" | "DISTINCT") ~ multiset_primary 
+}
+multiset_primary = {
+    multiset_value_function 
+    | value_expression_primary 
+}
+
+//6.44 multiset value function
+multiset_value_function = {
+    multiset_set_function 
+}
+multiset_set_function = {
+    "SET" ~ left_paren ~ multiset_value_expression ~ right_paren 
+}
+
+//6.45 multiset value constructor
+multiset_value_constructor = {
+    multiset_value_constructor_by_enumeration 
+    | multiset_value_constructor_by_query 
+    | table_value_constructor_by_query
+} 
+multiset_value_constructor_by_enumeration = {
+    "MULTISET" ~ left_bracket_or_trigraph ~ multiset_element_list ~ right_bracket_or_trigraph
+} 
+multiset_element_list = {
+    multiset_element ~ (comma ~ multiset_element)?
+}
+multiset_element = {
+    value_expression 
+}
+multiset_value_constructor_by_query = {
+    "MULTISET" ~ table_subquery 
+}
+table_value_constructor_by_query = {
+    "TABLE" ~ table_subquery 
 }
 
 //7.1 row value constructor
@@ -1343,6 +1608,274 @@ table_or_query_name = {
 }
 column_name_list = {
     column_name ~ (comma ~ column_name)*
+}
+
+//7.8 row pattern measures
+row_pattern_measures = {
+    "MEASURES" ~ row_pattern_measure_list
+} 
+row_pattern_measure_list = {
+    row_pattern_measure_definition ~ (comma ~ row_pattern_measure_definition)*
+}
+row_pattern_measure_definition = {
+    row_pattern_measure_expression ~ "AS" ~ measure_name 
+}
+row_pattern_measure_expression = {
+    value_expression 
+}
+
+//7.9 row pattern common syntax
+row_pattern_common_syntax = {"AFTER"}
+
+//7.11 json table
+json_table = {
+    "JSON_TABLE" ~ left_paren 
+    ~ json_api_common_syntax 
+    ~ json_table_columns_clause 
+    ~ json_table_plan_clause?
+    ~ (json_table_error_behavior ~ "ON" ~ "ERROR")?
+    ~ right_paren 
+}
+json_table_columns_clause = {
+    "COLUMNS" ~ left_paren 
+    ~ json_table_column_definition ~ (comma ~ json_table_column_definition)* 
+    ~ right_paren 
+}
+json_table_column_definition = {
+    json_table_ordinality_column_definition 
+    | json_table_regular_column_definition 
+    | json_table_formatted_column_definition 
+    | json_table_nested_columns 
+}
+json_table_ordinality_column_definition = {
+    column_name ~ "FOR" ~ "ORDINALITY"
+}
+json_table_regular_column_definition = {
+    column_name ~ data_type 
+    ~ ("PATH" ~ json_table_column_path_specification)?
+    ~ (json_table_column_empty_behavior ~ "ON" ~ "EMPTY")?
+    ~ (json_table_column_error_behavior ~ "ON" ~ "ERROR")?
+}
+json_table_column_empty_behavior = {
+    "ERROR"
+    | "NULL"
+    | "DEFAULT" ~ value_expression 
+}
+json_table_column_error_behavior = {    
+    "ERROR"
+    | "NULL"
+    | "DEFAULT" ~ value_expression 
+}
+json_table_column_path_specification = {
+    json_path_specification
+}
+json_table_formatted_column_definition = {
+    column_name ~ data_type 
+    ~ "FORMAT" ~ json_representation 
+    ~ ("PATH" ~ json_table_column_path_specification)?
+    ~ (json_table_formatted_column_wrapper_behavior ~ "WRAPPER")?
+    ~ (json_table_formatted_column_quotes_behavior ~ "QUOTES" ~ ("ON" ~ "SCALAR" ~ "STRING")?)?
+    ~ (json_table_formatted_column_empty_behavior ~ "ON" ~ "EMPTY")?
+    ~ (json_table_formatted_column_error_behavior ~ "ON" ~ "ERROR")?
+}
+json_table_formatted_column_wrapper_behavior = {
+    "WITHOUT" ~ "ARRAY"? 
+    | "WITH" ~ ("CONDITIONAL" | "UNCONDITIONAL")? ~ "ARRAY"? 
+}
+json_table_formatted_column_quotes_behavior = {
+    "KEEP"
+    | "OMIT"
+}
+json_table_formatted_column_empty_behavior = {
+    "ERROR"
+    | "NULL"
+    | "EMPTY" ~ "ARRAY"
+    | "EMPTY" ~ "OBJECT"
+}
+json_table_formatted_column_error_behavior = {
+    "ERROR"
+    | "NULL"
+    | "EMPTY" ~ "ARRAY"
+    | "EMPTY" ~ "OBJECT"
+}
+json_table_nested_columns = {
+    "NESTED" ~ "PATH"? ~ json_table_nested_path_specification 
+    ~ ("AS" ~ json_table_nested_path_name)?
+    ~ json_table_columns_clause
+} 
+json_table_nested_path_specification = {
+    json_path_specification 
+}
+json_table_nested_path_name = {
+    json_table_path_name 
+}
+json_table_path_name = {
+    identifier 
+}
+json_table_plan_clause = {
+    json_table_specific_plan 
+    | json_table_default_plan 
+}
+json_table_specific_plan = {
+    "PLAN" ~ left_paren ~ json_table_plan ~ right_paren
+} 
+json_table_plan = {
+    json_table_path_name 
+    | json_table_plan_parent_child 
+    | json_table_plan_sibling
+} 
+json_table_plan_parent_child = {
+    json_table_plan_outer 
+    | json_table_plan_inner 
+}
+json_table_plan_outer = {
+    json_table_path_name ~ "OUTER" ~ json_table_plan_primary
+} 
+json_table_plan_inner = {
+    json_table_path_name ~ "INNER" ~ json_table_plan_primary
+} 
+json_table_plan_sibling = {
+    json_table_plan_union 
+    | json_table_plan_cross 
+}
+json_table_plan_union = {
+    json_table_plan_primary ~ "UNION" ~ json_table_plan_primary 
+    ~ "UNION" ~ json_table_plan_primary
+}
+json_table_plan_cross = {
+    json_table_plan_primary ~ "CROSS" ~ json_table_plan_primary 
+    ~ ("CROSS" ~ json_table_plan_primary)*  
+}
+json_table_plan_primary = {
+    json_table_path_name 
+    | left_paren ~ json_table_plan ~ right_paren
+} 
+json_table_default_plan = {
+    "PLAN" ~ "DEFAULT" ~ left_paren 
+    ~ json_table_default_plan_choices ~ right_paren
+} 
+json_table_default_plan_choices = {
+    json_table_default_plan_inner_outer 
+    ~ (comma ~ json_table_default_plan_union_cross)?
+    | json_table_default_plan_union_cross 
+    ~ (comma ~ json_table_default_plan_inner_outer)?
+}
+json_table_default_plan_inner_outer = {
+    "INNER" | "OUTER"
+}
+json_table_default_plan_union_cross = {
+    "UNION" | "CROSS"
+}
+json_table_error_behavior = {
+    "ERROR"
+    | "EMPTY"
+}
+json_table_primitive = {
+    "JSON_TABLE_PRIMITIVE" ~ left_paren 
+    ~ json_api_common_syntax 
+    ~ json_table_primitive_columns_clause 
+    ~ json_table_error_behavior ~ "ON" ~ "ERROR"
+    ~ right_paren 
+}
+json_table_primitive_columns_clause = {
+    "COLUMNS" ~ left_paren 
+    ~ json_table_primitive_column_definition 
+    ~ (comma ~ json_table_primitive_column_definition)*
+    ~ right_paren 
+}
+json_table_primitive_column_definition = {
+    json_table_ordinality_column_definition 
+    | json_table_regular_column_definition 
+    | json_table_formatted_column_definition 
+    | json_table_primitive_chaining_column 
+}
+json_table_primitive_chaining_column = {
+    column_name ~ "FOR" ~ "CHAINING"
+}
+
+//7.15 window clause
+window_clause = {
+    "WINDOW" ~ window_definition_list 
+}
+window_definition_list = {
+    window_definition ~ (comma ~ window_definition)*
+}
+window_definition = {
+    new_window_name ~ "AS" ~ window_specification 
+}
+new_window_name = {
+    window_name 
+}
+window_specification = {
+    left_paren ~ window_specification_details ~ right_paren 
+}
+window_specification_details = {
+    existing_window_name?
+    ~ window_partition_clause?
+    ~ window_order_clause?
+    ~ window_frame_clause?
+}
+existing_window_name = {
+    window_name 
+}
+window_partition_clause = {
+    "PARTITION" ~ "BY" ~ window_partition_column_reference_list
+} 
+window_partition_column_reference_list = {
+    window_partition_column_reference 
+    ~ (comma ~ window_partition_column_reference)*
+}
+window_partition_column_reference = {
+    column_reference ~ collate_clause?
+}
+window_order_clause = {
+    "ORDER" ~ "BY" ~ sort_specification_list
+} 
+window_frame_clause = {
+    row_pattern_measures?
+    ~ window_frame_units ~ window_frame_extent 
+    ~ window_frame_exclusion?
+    ~ row_pattern_common_syntax?
+}
+window_frame_units = {
+    "ROWS"
+    | "RANGE"
+    | "GROUPS"
+}
+window_frame_extent = {
+    window_frame_start 
+    | window_frame_between 
+}
+window_frame_start = {
+    "UNBOUNDED" ~ "PRECEDING"
+    | window_frame_preceding 
+    | "CURRENT" ~ "ROW"
+}
+window_frame_preceding = {
+    unsigned_value_specification ~ "PRECEDING"
+}
+window_frame_between = {
+    "BETWEEN" ~ window_frame_bound_1 ~ "AND" ~ window_frame_bound_2 
+}
+window_frame_bound_1 = {
+    window_frame_bound 
+}
+window_frame_bound_2 = {
+    window_frame_bound 
+}
+window_frame_bound = {
+    window_frame_start 
+  | "UNBOUNDED" ~ "FOLLOWING"
+  | window_frame_following
+} 
+window_frame_following = {
+    unsigned_value_specification ~ "FOLLOWING"
+}
+window_frame_exclusion = {
+    "EXCLUDE" ~ "CURRENT" ~ "ROW"
+    | "EXCLUDE" ~ "GROUP"
+    | "EXCLUDE" ~ "TIES"
+    | "EXCLUDE" ~ "NO" ~ "OTHERS"
 }
 
 //7.16 
@@ -1551,6 +2084,8 @@ character_specifier = {
     non_escaped_character 
     | escaped_character
 } 
+non_escaped_character = {"TODO"}
+escaped_character = {"TODO"}
 regular_character_set = {
     underscore 
     | left_bracket ~ character_enumeration+ ~ right_bracket 
@@ -1821,6 +2356,166 @@ json_exists_error_behavior = {
     "TRUE" | "FALSE" | "UNKNOWN" | "ERROR"
 }
 
+//10.1 interval qualifier>
+interval_qualifier = {
+    start_field ~ "TO" ~ end_field 
+    | single_datetime_field
+} 
+start_field = {
+    non_second_primary_datetime_field 
+    ~ (left_paren ~ interval_leading_field_precision ~ right_paren)?
+}
+end_field = {
+    non_second_primary_datetime_field 
+    | "SECOND" ~ (left_paren ~ interval_fractional_seconds_precision ~ right_paren)?
+}
+single_datetime_field = {
+    non_second_primary_datetime_field 
+    ~ (left_paren  ~ interval_leading_field_precision ~ right_paren)
+    ~ ("SECOND" ~ left_paren ~ interval_leading_field_precision
+    ~ (comma ~ interval_fractional_seconds_precision)? ~ right_paren)?
+}
+primary_datetime_field = {
+    non_second_primary_datetime_field 
+    | "SECOND"
+}
+non_second_primary_datetime_field = {
+    "YEAR"
+    | "MONTH"
+    | "DAY"
+    | "HOUR"
+    | "MINUTE"
+}
+interval_fractional_seconds_precision = {
+    unsigned_integer 
+}
+interval_leading_field_precision = {
+    unsigned_integer 
+}
+
+//10.9 aggregate function
+aggregate_function = {
+    "COUNT" ~ left_paren ~ asterisk ~ right_paren ~ filter_clause?
+    | general_set_function ~ filter_clause?
+    | binary_set_function ~ filter_clause?
+    | ordered_set_function ~ filter_clause?
+    | array_aggregate_function ~ filter_clause?
+    | row_pattern_count_function ~ filter_clause?
+    | json_aggregate_function ~ filter_clause?
+}
+general_set_function = {
+    set_function_type ~ left_paren ~ set_quantifier?
+    ~ value_expression ~ right_paren
+} 
+set_function_type = {
+    computational_operation
+} 
+computational_operation = {
+    "AVG"
+    | "MAX"
+    | "MIN"
+    | "SUM"
+    | "EVERY"
+    | "ANY"
+    | "SOME"
+    | "COUNT"
+    | "STDDEV_POP"
+    | "STDDEV_SAMP"
+    | "VAR_SAMP"
+    | "VAR_POP"
+    | "COLLECT"
+    | "FUSION"
+    | "INTERSECTION"
+}
+set_quantifier = {
+    "DISTINCT"
+    | "ALL"
+}
+filter_clause = {
+    "FILTER" ~ left_paren ~ "WHERE" ~ search_condition ~ right_paren
+} 
+binary_set_function = {
+    binary_set_function_type ~ left_paren ~ dependent_variable_expression ~ comma 
+    ~ independent_variable_expression ~ right_paren
+} 
+binary_set_function_type = {
+    "COVAR_POP"
+    | "COVAR_SAMP"
+    | "CORR"
+    | "REGR_SLOPE"
+    | "REGR_INTERCEPT"
+    | "REGR_COUNT"
+    | "REGR_R2"
+    | "REGR_AVGX"
+    | "REGR_AVGY"
+    | "REGR_SXX"
+    | "REGR_SYY"
+    | "REGR_SXY"
+}
+dependent_variable_expression = {
+    numeric_value_expression 
+}
+independent_variable_expression = {
+    numeric_value_expression 
+}
+ordered_set_function = {
+    hypothetical_set_function 
+    | inverse_distribution_function 
+    | listagg_set_function
+} 
+hypothetical_set_function = {
+    rank_function_type ~ left_paren 
+    ~ hypothetical_set_function_value_expression_list ~ right_paren 
+    ~ within_group_specification
+} 
+within_group_specification = {
+    "WITHIN" ~ "GROUP"~ left_paren ~ "ORDER" ~ "BY" ~ sort_specification_list ~ right_paren
+} 
+hypothetical_set_function_value_expression_list = {
+    value_expression ~ (comma ~ value_expression)*  
+}
+inverse_distribution_function = {
+    inverse_distribution_function_type ~ left_paren 
+    ~ inverse_distribution_function_argument ~ right_paren 
+    ~ within_group_specification
+} 
+inverse_distribution_function_argument = {
+    numeric_value_expression 
+}
+inverse_distribution_function_type = {
+    "PERCENTILE_CONT"
+    | "PERCENTILE_DISC"
+}
+listagg_set_function = {
+    "LISTAGG" ~ left_paren ~ set_quantifier? ~ character_value_expression 
+    ~ comma ~ listagg_separator ~ listagg_overflow_clause? ~ right_paren 
+    ~ within_group_specification
+} 
+listagg_separator = {
+    character_string_literal 
+}
+listagg_overflow_clause = {
+    "ON" ~ "OVERFLOW" ~ overflow_behavior 
+}
+overflow_behavior = {
+    "ERROR"
+    | "TRUNCATE" ~ listagg_truncation_filler? ~ listagg_count_indication 
+}
+listagg_truncation_filler = {
+    character_string_literal
+} 
+listagg_count_indication = {
+    "WITH" ~ "COUNT"
+    | "WITHOUT" ~ "COUNT"
+}
+array_aggregate_function = {
+    "ARRAY_AGG"
+    ~ left_paren ~ value_expression ~ ("ORDER" ~ "BY" ~ sort_specification_list)? ~ right_paren 
+}
+row_pattern_count_function = {
+    "COUNT" ~ left_paren ~ row_pattern_variable_name ~ period ~ asterisk ~ right_paren 
+}
+
 //10.10 sort specification list
 sort_specification_list = {
     sort_specification ~ (comma ~ sort_specification)*
@@ -1838,6 +2533,57 @@ ordering_specification = {
 null_ordering = {
     "NULLS" ~ "FIRST"
     | "NULLS" ~ "LAST"
+}
+
+//10.11 json aggregate function
+json_aggregate_function = {
+    json_object_aggregate_constructor 
+    | json_array_aggregate_constructor
+} 
+json_object_aggregate_constructor = {
+    "JSON_OBJECTAGG" ~ left_paren 
+    ~ json_name_and_value 
+    ~ json_constructor_null_clause?
+    ~ json_key_uniqueness_constraint?
+    ~ json_output_clause?
+    ~ right_paren 
+}
+json_array_aggregate_constructor = {
+    "JSON_ARRAYAGG" ~ left_paren 
+    ~ json_value_expression 
+    ~ json_array_aggregate_order_by_clause?
+    ~ json_constructor_null_clause?
+    ~ json_output_clause?
+    ~ right_paren 
+}
+json_array_aggregate_order_by_clause = {
+    "ORDER" ~ "BY" ~ sort_specification_list 
+}
+
+//10.12 json value expression
+json_value_expression = {
+    value_expression ~ json_input_clause?
+}
+json_input_clause = {
+    "FORMAT" ~ json_representation 
+}
+
+//10.14 json api common syntax
+json_api_common_syntax = {
+    json_context_item ~ comma ~ json_path_specification ~ ("AS" ~ json_table_path_name)*
+    ~ json_passing_clause?
+}
+json_context_item = {
+    json_value_expression
+} 
+json_path_specification = {
+    character_string_literal 
+}
+json_passing_clause = {
+    "PASSING" ~ json_argument ~ (comma ~ json_argument)*
+}
+json_argument = {
+    json_value_expression ~ "AS" ~ identifier 
 }
 
 //11.3 table defenition
@@ -1924,6 +2670,168 @@ application_time_period_name = {identifier}
 period_begin_column_name = {column_name}
 period_end_column_name = {column_name}
 
+//11.10
+alter_table_statement = {"TODO"}
+
+//11.31 drop table statement
+drop_table_statement = {
+    "DROP" ~ "TABLE" ~ table_name ~ drop_behavior? 
+}
+
+//11.32 view definition
+view_definition = {
+    "CREATE" ~ "RECURSIVE" ~ "VIEW" ~ table_name ~ view_specification 
+    ~ "AS" ~ query_expression ~ ("WITH" ~ levels_clause?)? ~ "CHECK" ~ "OPTION"
+}
+view_specification = {
+    regular_view_specification 
+    | referenceable_view_specification
+} 
+regular_view_specification = {
+    left_paren ~ view_column_list ~ right_paren
+}
+referenceable_view_specification = {
+    "OF" ~ path_resolved_user_defined_type_name ~ subview_clause
+    ~ view_element_list?
+}
+subview_clause = {
+    "UNDER" ~ table_name 
+}
+view_element_list = {
+    left_paren ~ view_element ~ (comma ~ view_element)* ~ right_paren 
+}
+view_element = {
+    self_referencing_column_specification 
+    | view_column_option 
+}
+view_column_option = {
+    column_name ~ "WITH" ~ "OPTIONS" ~ scope_clause
+} 
+levels_clause = {
+    "CASCADED"
+    | "LOCAL"
+}
+view_column_list = {
+    column_name_list 
+}
+
+//11.33
+drop_view_statement = {"TODO"}
+
+//11.34
+domain_definition = {"TODO"}
+
+//11.35
+alter_domain_statement = {"TODO"}
+
+//11.36
+set_domain_default_clause = {"TODO"}
+
+//11.37
+drop_domain_default_clause = {"TODO"}
+
+//11.38
+add_domain_constraint_definition = {"TODO"}
+
+//11.39
+drop_domain_constraint_definition = {"TODO"}
+
+//11.40 drop domain statement
+drop_domain_statement = {"TODO"}
+
+//11.41 character set definition
+character_set_definition = {"TODO"}
+
+//11.42 drop character set statement
+drop_character_set_statement = {"TODO"}
+
+//11.43 collation definition
+collation_definition = {"TODO"}
+
+//11.44
+drop_collation_statement = {"TODO"}
+
+//11.45
+transliteration_definition = {"TODO"}
+
+//11.46
+drop_transliteration_statement = {"TODO"}
+
+//11.47
+assertion_definition = {"TODO"}
+
+//11.48
+drop_assertion_statement = {"TODO"}
+
+//11.49
+trigger_definition = {"TODO"}
+
+//11.50
+drop_trigger_statement = {"TODO"}
+
+//11.51
+user_defined_type_definition = {"TODO"}
+
+//11.53
+alter_type_statement = {"TODO"}
+
+//11.59
+drop_data_type_statement = {"TODO"}
+
+//11.60
+sql_invoked_routine = {"TODO"}
+
+//11.61
+alter_routine_statement = {"TODO"}
+
+//11.62 drop routine statement
+drop_routine_statement = {"TODO"}
+
+//11.63
+user_defined_cast_definition = {"TODO"}
+
+//11.64
+drop_user_defined_cast_statement = {"TODO"}
+
+//11.65
+user_defined_ordering_definition = {"TODO"}
+
+//11.66
+drop_user_defined_ordering_statement = {"TODO"}
+
+//11.67
+transform_definition = {"TODO"}
+
+//11.68
+alter_transform_statement = {"TODO"}
+
+//11.69 add transform element list
+add_transform_element_list = {"TODO"}
+
+//11.70 drop transform element list
+drop_transform_element_list = {"TODO"}
+
+//11.71
+drop_transform_statement = {"TODO"}
+
+//11.72
+sequence_generator_definition = {"TODO"}
+
+//11.73
+alter_sequence_generator_statement = {"TODO"}
+
+//11.74 drop sequence generator statement
+drop_sequence_generator_statement = {"TODO"}
+
+//12.1 
+grant_statement = {"TODO"}
+//12.4
+role_definition = {"TODO"}
+//12.6
+drop_role_statement = {"TODO"}
+//12.7
+revoke_statement = {"TODO"}
+
 //14
 with_clause = {
     "WITH" ~ "RECURSIVE"? ~ with_list 
@@ -2000,6 +2908,50 @@ call_statement = {"CALL" ~ "routine_invocation"}
 return_statement = {"RETURN" ~ return_value}
 return_value = {value_expression | "NULL"}
 
+//6.33 json value constructor
+json_value_constructor = {
+    json_object_constructor 
+    | json_array_constructor
+} 
+json_object_constructor = {
+    "JSON_OBJECT" ~ left_paren 
+    ~ json_name_and_value ~ (comma ~ json_name_and_value)*
+    ~ json_constructor_null_clause?
+    ~ json_key_uniqueness_constraint?
+    ~ json_output_clause?
+    ~ right_paren 
+}
+json_name_and_value = {
+    "KEY" ~ json_name ~ "VALUE" ~ json_value_expression 
+    | json_name ~ colon ~ json_value_expression 
+}
+json_name = {
+    character_value_expression 
+}
+json_constructor_null_clause = {
+    "NULL" ~ "ON" ~ "NULL"
+    | "ABSENT" ~ "ON" ~ "NULL"
+}
+json_array_constructor = {
+    json_array_constructor_by_enumeration 
+    | json_array_constructor_by_query
+} 
+json_array_constructor_by_enumeration = {
+    "JSON_ARRAY" ~ left_paren 
+    ~ (json_value_expression ~ (comma ~ json_value_expression)* 
+    ~ json_constructor_null_clause?)?
+    ~ json_output_clause?
+    ~ right_paren 
+}
+json_array_constructor_by_query = {
+    "JSON_ARRAY" ~ left_paren 
+    ~ query_expression 
+    ~ json_input_clause?  
+    ~ json_constructor_null_clause? 
+    ~ json_output_clause?
+    ~ right_paren 
+}
+
 //6.36 datetime value function
 datetime_value_function = {
     current_date_value_function 
@@ -2024,6 +2976,45 @@ current_local_timestamp_value_function = {
     "LOCALTIMESTAMP" ~ (left_paren ~ timestamp_precision ~ right_paren)?
 }
 
+//6.37 interval value expression
+interval_value_expression = {
+    interval_term 
+    | interval_value_expression_1 ~ plus_sign ~ interval_term_1 
+    | interval_value_expression_1 ~ minus_sign ~ interval_term_1 
+    | left_paren ~ datetime_value_expression ~ minus_sign ~ datetime_term ~ right_paren 
+    ~ interval_qualifier 
+}
+interval_term = {
+    interval_factor
+    | interval_term_2 ~ asterisk ~ factor 
+    | interval_term_2 ~ solidus ~ factor 
+    | term ~ asterisk ~ interval_factor 
+}
+interval_factor = {
+    sign? ~ interval_primary 
+}
+interval_primary = {
+    value_expression_primary ~ interval_qualifier?
+    | interval_value_function 
+}
+interval_value_expression_1 = {
+    interval_value_expression 
+}
+interval_term_1 = {
+    interval_term 
+}
+interval_term_2 = {
+    interval_term
+} 
+
+//6.38 interval value function>
+interval_value_function = {
+    interval_absolute_value_function
+} 
+interval_absolute_value_function = {
+    "ABS" ~ left_paren ~ interval_value_expression ~ right_paren 
+}
+
 //10.4 routine invocation
 routine_invocation = {routine_name ~ sql_argument_list}
 routine_name = {schema_name ~ period ~ qualified_identifier}
@@ -2044,6 +3035,35 @@ named_argument_sql_argument = {
     value_expression
     | target_specification
     | "contextually_typed_value_specification"
+}
+
+//10.5 character set specification
+character_set_specification = {
+    standard_character_set_name 
+    | implementation_defined_character_set_name 
+    | user_defined_character_set_name
+} 
+standard_character_set_name = {
+    character_set_name 
+}
+implementation_defined_character_set_name = {
+    character_set_name 
+}
+user_defined_character_set_name = {
+    character_set_name 
+}
+
+//10.7 collate clause
+collate_clause = {
+    "COLLATE" ~ collation_name
+} 
+
+//10.13 json output clause
+json_output_clause = {
+    "RETURNING" ~ data_type ~ ("FORMAT" ~ json_representation)?
+}
+json_representation = {
+    "JSON" ~ ("ENCODING" ~ ("UTF8" | "UTF16" | "UTF32"))?
 }
 
 //11 schema definition and manipulation
@@ -2098,25 +3118,169 @@ drop_behavior = {
 }
 
 //13.4 sql procedure statement
-sql_session_statement = {
-    sql_session_statement 
+sql_procedure_statement = {
+    sql_executable_statement
+} 
+sql_executable_statement = {
+    sql_schema_statement 
+    | sql_data_statement 
+    | sql_control_statement 
+    | sql_transaction_statement 
+    | sql_connection_statement 
+    | sql_session_statement 
+    | sql_diagnostics_statement 
+    | sql_dynamic_statement 
 }
-
-sql_connection_statement = {
-    connect_statement
+sql_schema_statement = {
+    sql_schema_definition_statement 
+    | sql_schema_manipulation_statement
+} 
+sql_schema_definition_statement = {
+    schema_definition 
+    | table_definition 
+    | view_definition 
+    | sql_invoked_routine 
+    | grant_statement 
+    | role_definition 
+    | domain_definition 
+    | character_set_definition 
+    | collation_definition 
+    | transliteration_definition 
+    | assertion_definition 
+    | trigger_definition 
+    | user_defined_type_definition 
+    | user_defined_cast_definition
+    | user_defined_ordering_definition 
+    | transform_definition 
+    | sequence_generator_definition 
 }
-
+sql_schema_manipulation_statement = {
+    drop_schema_statement 
+    | alter_table_statement 
+    | drop_table_statement 
+    | drop_view_statement 
+    | alter_routine_statement 
+    | drop_routine_statement 
+    | drop_user_defined_cast_statement 
+    | revoke_statement 
+    | drop_role_statement 
+    | alter_domain_statement 
+    | drop_domain_statement 
+    | drop_character_set_statement 
+    | drop_collation_statement 
+    | drop_transliteration_statement 
+    | drop_assertion_statement 
+    | drop_trigger_statement 
+    | alter_type_statement 
+    | drop_data_type_statement 
+    | drop_user_defined_ordering_statement 
+    | alter_transform_statement 
+    | drop_transform_statement 
+    | alter_sequence_generator_statement 
+    | drop_sequence_generator_statement
+} 
+sql_data_statement = {
+    open_statement 
+    | fetch_statement 
+    | close_statement 
+    | select_statement_single_row 
+    | free_locator_statement 
+    | hold_locator_statement 
+    | sql_data_change_statement
+} 
+sql_data_change_statement = {
+    delete_statement_positioned 
+    | delete_statement_searched 
+    | insert_statement 
+    | update_statement_positioned 
+    | update_statement_searched 
+    | truncate_table_statement 
+    | merge_statement 
+}
+sql_control_statement = {
+    call_statement 
+    | return_statement
+} 
 sql_transaction_statement = {
-    commit_statement
+    start_transaction_statement 
+    | set_transaction_statement 
+    | set_constraints_mode_statement 
+    | savepoint_statement 
+    | release_savepoint_statement 
+    | commit_statement 
+    | rollback_statement
+} 
+sql_connection_statement = {
+    connect_statement 
+    | set_connection_statement 
+    | disconnect_statement 
+}
+sql_session_statement = {
+    set_session_user_identifier_statement 
+    | set_role_statement 
+    | set_local_time_zone_statement 
+    | set_session_characteristics_statement 
+    | set_catalog_statement 
+    | set_schema_statement 
+    | set_names_statement 
+    | set_path_statement 
+    | set_transform_group_statement 
+    | set_session_collation_statement 
+}
+sql_diagnostics_statement = {
+    get_diagnostics_statement
+} 
+sql_dynamic_statement = {
+    sql_descriptor_statement 
+    | prepare_statement 
+    | deallocate_prepared_statement 
+    | describe_statement 
+    | execute_statement 
+    | execute_immediate_statement 
+    | sql_dynamic_data_statement 
+    | copy_descriptor_statement 
+    | pipe_row_statement 
+}
+sql_dynamic_data_statement = {
+    allocate_extended_dynamic_cursor_statement 
+    | allocate_received_cursor_statement 
+    | dynamic_open_statement 
+    | dynamic_fetch_statement 
+    | dynamic_close_statement 
+    | dynamic_delete_statement_positioned
+    | dynamic_update_statement_positioned 
+}
+sql_descriptor_statement = {
+    allocate_descriptor_statement 
+    | deallocate_descriptor_statement 
+    | set_descriptor_statement 
+    | get_descriptor_statement 
 }
 
 //14.3
 cursor_specification = {
-    updatability_clause?
+    updatability_clause
 }
 updatability_clause = {
     "FOR" ~ ("READ" ~ "ONLY" | "UPDATE" ~ ("OF")?)
 }
+
+//14.4 open statement
+open_statement = {
+    "OPEN" ~ cursor_name
+} 
+
+//14.5 fetch statement
+fetch_statement = {"TODO"}
+
+//14.6 close statement
+close_statement = {"TODO"}
+
+//14.7
+select_statement_single_row = {"TODO"}
+
+//14.8 delete statement: positioned
+delete_statement_positioned = {"TODO"}
 
 //14.9 delete statement: searched
 delete_statement_searched = {
@@ -2138,6 +3302,9 @@ merge_statement = {
     "MERGE" ~ "INTO"
 }
 
+//14.13 update statement: positioned
+update_statement_positioned = {"TODO"}
+
 //14.14 update statement: searched
 update_statement_searched = {
     "UPDATE"
@@ -2148,6 +3315,12 @@ temporary_table_declaration = {
     "DECLARE" ~ "LOCAL" ~ "TEMPORARY" ~ "TABLE" ~ table_name ~ table_element_list 
     ~ ("ON" ~ "COMMIT" ~ table_commit_action ~ "ROWS")?
 }
+
+//14.17 free locator statement
+free_locator_statement = {"TODO"}
+
+//14.18 hold locator statement
+hold_locator_statement = {"TODO"}
 
 //17.1 start transaction statement
 start_transaction_statement = {
@@ -2325,32 +3498,61 @@ set_session_collation_statement = {
 collation_specification = {value_specification} 
 
 //20.2
+allocate_descriptor_statement = {"TODO"}
 //20.3
+deallocate_descriptor_statement = {"TODO"}
 //20.4
+get_descriptor_statement = {"TODO"}
 //20.5
+set_descriptor_statement = {"TODO"}
 //20.6
+copy_descriptor_statement = {"TODO"}
 //20.7
+prepare_statement = {"TODO"}
 //20.8
+cursor_attributes = {"TODO"}
 //20.9
+deallocate_prepared_statement = {"TODO"}
 //20.10
+describe_statement = {"TODO"}
 //20.11
+input_using_clause = {"TODO"}
 //20.12
+output_using_clause = {"TODO"}
 //20.13
+execute_statement = {"TODO"}
 //20.14
+execute_immediate_statement = {"TODO"}
 //20.15
+dynamic_declare_cursor = {"TODO"}
 //20.16
+descriptor_value_constructor = {"TODO"}
 //20.17
+allocate_extended_dynamic_cursor_statement = {"TODO"}
 //20.18
+allocate_received_cursor_statement = {"TODO"}
 //20.19
+dynamic_open_statement = {"TODO"}
 //20.20
+dynamic_fetch_statement = {"TODO"}
 //20.21
+dynamic_single_row_select_statement = {"TODO"}
 //20.22
+dynamic_close_statement = {"TODO"}
 //20.23
+dynamic_delete_statement_positioned = {"TODO"}
 //20.24
+dynamic_update_statement_positioned = {"TODO"}
 //20.25
+preparable_dynamic_delete_statement_positioned = {"TODO"}
 //20.26
+preparable_dynamic_cursor_name = {"TODO"}
 //20.27
+preparable_dynamic_update_statement_positioned = {"TODO"}
 //20.28
+pipe_row_statement = {
+    "PIPE" ~ "ROW" ~ ptf_descriptor_name 
+}
 
 //21.1
 //21.2
@@ -2371,8 +3573,7 @@ directly_executable_statement = {
     | sql_schema_statement 
     | sql_transaction_statement 
     | sql_connection_statement 
-    | sql_session_statement 
-    | direct_implementation_defined_statement 
+    | sql_session_statement  
 }
 direct_sql_data_statement = {
     delete_statement_searched 

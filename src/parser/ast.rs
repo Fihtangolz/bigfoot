@@ -33,3 +33,40 @@ pub enum DefaultClause {
     CurrentSchema,
     CurrentPath,
 }
+
+pub enum TableScope {
+    Global,
+    Local,
+}
+
+pub enum TableCommitAction {
+    Preserve,
+    Delete,
+}
+
+pub struct TableElem {
+    
+}
+
+pub struct TypedClause {
+
+}
+
+pub struct SubqueryClause {
+
+}
+
+pub enum TableContentsSource {
+    ElemList(vec<TableElem>),
+    TypedClause(TypedClause),
+    SubqueryClause(SubqueryClause), 
+}
+
+pub struct TableDefinition {
+    Scope: Option<TableScope>,
+    Name: str,
+    Action: Option<TableCommitAction>,
+    IsSysVersioning: bool,
+    Source: TableContentsSource,
+}
+
